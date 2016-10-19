@@ -14,6 +14,44 @@ var inquirer = require('inquirer')
 
 var VERSION = require(path.resolve(__dirname, 'package.json')).version
 
+var discoverMore = {
+  name: 'Discover more...',
+  value: 'run-discovery'
+}
+
+function byName (a, b) {
+  return a.name > b.name
+}
+
+var coreFlavors = require('./coreFlavors.json').sort(byName)
+
+var streamLibQuestion = {
+  name: 'streamLib',
+  message: 'Which stream library do you want to use?',
+  type: 'list',
+  choices: [
+    {
+      name: 'XStream, tailored for Cycle.js',
+      value: 'xstream'
+    },
+    {
+      name: 'Most.js, a blazing fast stream library',
+      value: 'most'
+    },
+    {
+      name: 'RxJS v5',
+      value: 'rxjs'
+    },
+    {
+      name: 'RxJS v4',
+      value: 'rx'
+    }
+  ],
+  when: function (currentAnswers) {
+    return currentAnswers.flavor !== discoverMore.value
+  }
+}
+
 // Command line prelude (version and usage)
 var commands = argv._
 if (commands.length === 0) {
@@ -21,14 +59,14 @@ if (commands.length === 0) {
     console.log(chalk.green('create-cycle-app version: ' + VERSION))
     process.exit()
   }
-  console.error(chalk.red('Usage: create-cycle-app <project-directory> [--flavor] [--verbose]'))
+  console.error(chalk.red('Usage: create-cycle-app <project-directory> [--flavor] [--stream] [--verbose]'))
   process.exit(1)
 }
 
-createApp(commands[0], argv.verbose, argv.flavor)
+createApp(commands[0], argv.verbose, argv.flavor, argv.stream)
 
 // Parse the command line options and run the setup
-function createApp (name, verbose, flavor) {
+function createApp (name, verbose, flavor, streamLib) {
   var appFolder = path.resolve(name)
   var appName = path.basename(appFolder)
 
@@ -40,88 +78,58 @@ function createApp (name, verbose, flavor) {
     process.exit(1)
   }
 
-  function byName (a, b) {
-    return a.name > b.name
+  var questions = []
+
+  if (!flavor) {
+    questions.push({
+      name: 'flavor',
+      message: 'Which flavor do you want to use?',
+      type: 'list',
+      choices: coreFlavors.concat(discoverMore)
+    })
   }
 
-  function notDiscovery (flavor) {
-    return flavor.value !== 'run-discovery'
+  if (!streamLib) {
+    questions.push(streamLibQuestion)
   }
 
-  var discoverMore = {
-    name: 'Discover more...',
-    value: 'run-discovery'
+  // No more questions
+  if (!questions.length) {
+    preparePackageJson(appFolder, appName, flavor, streamLib, verbose)
+    return
   }
 
-  var coreFlavors = require('./coreFlavors.json')
+  inquirer.prompt(questions).then(function (answers) {
+    flavor = flavor || answers.flavor
+    streamLib = streamLib || answers.streamLib
 
-  var streamLibQuestion = {
-    name: 'streamLib',
-    message: 'Which stream library do you want to use?',
-    type: 'list',
-    choices: [
-      {
-        name: 'XStream, tailored for Cycle.js',
-        value: 'xstream'
-      },
-      {
-        name: 'Most.js, a blazing fast stream library',
-        value: 'most'
-      },
-      {
-        name: 'RxJS v5',
-        value: 'rxjs'
-      },
-      {
-        name: 'RxJS v4',
-        value: 'rx'
-      }
-    ],
-    when: function (currentAnswers) {
-      return currentAnswers.flavor !== 'run-discovery'
+    if (flavor !== discoverMore.value) {
+      preparePackageJson(appFolder, appName, flavor, streamLib, verbose)
+      return
     }
-  }
 
-  if (flavor) {
-    // Ask just for the stream library
-    inquirer.prompt([streamLibQuestion]).then(function (answers) {
-      preparePackageJson(appFolder, appName, flavor, answers.streamLib, verbose)
-    })
-  } else {
-    inquirer.prompt([
-      {
-        name: 'flavor',
-        message: 'Which flavor do you want to use?',
-        type: 'list',
-        choices: coreFlavors.sort(byName).concat(discoverMore)
-      },
-      streamLibQuestion
-    ]).then(function (answers) {
-      // When run-discovery was choosed, we need to discover
-      // flavors somewhere else
-      if (answers.flavor === 'run-discovery') {
-        discoverFlavors(function (err, flavors) {
-          if (err) {
-            throw err
-          }
-
-          inquirer.prompt([
-            {
-              name: 'flavor',
-              message: 'Which flavor do you want to use?',
-              type: 'list',
-              choices: flavors.sort(byName).concat(coreFlavors.filter(notDiscovery))
-            },
-            streamLibQuestion
-          ]).then(function (answers) {
-            preparePackageJson(appFolder, appName, answers.flavor, answers.streamLib, verbose)
-          })
-        })
-      } else {
-        preparePackageJson(appFolder, appName, answers.flavor, answers.streamLib, verbose)
+    // When run-discovery was choosed, we need to discover
+    // flavors somewhere else
+    discoverFlavors(function (err, flavors) {
+      if (err) {
+        throw err
       }
+
+      inquirer.prompt([
+        {
+          name: 'flavor',
+          message: 'Which flavor do you want to use?',
+          type: 'list',
+          choices: flavors.sort(byName).concat(coreFlavors)
+        },
+        streamLibQuestion
+      ]).then(function (answers) {
+        flavor = flavor || answers.flavor
+        streamLib = streamLib || answers.streamLib
+        preparePackageJson(appFolder, appName, flavor, streamLib, verbose)
+      })
     })
-  }
+  })
 }
 
 function discoverFlavors (cb) {
