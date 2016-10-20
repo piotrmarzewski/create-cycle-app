@@ -2,12 +2,20 @@ var path = require('path')
 var spawn = require('cross-spawn')
 var rimraf = require('rimraf')
 var assert = require('assert')
+var pathExists = require('path-exists')
 
 // var coreFlavors = require('./coreFlavors.json')
 // var streamLibs = ['xstream', 'most', 'rxjs', 'rx']
 
 var coreFlavors = [{"name": "ES6 (babel) + Browserify", "value": "cycle-scripts-es-browserify"}]
 var streamLibs = ['xstream']
+
+
+function removeExampleProject (done) {
+  rimraf(path.resolve('example'), function () {
+    done()
+  })
+}
 
 describe('create-cycle-app', function () {
   // Timeout in 1 hour
@@ -19,18 +27,14 @@ describe('create-cycle-app', function () {
     streamLibs.forEach(function (streamLib) {
       context(flavor.name + ' / ' + streamLib, function () {
 
-        after(function (done) {
-          rimraf(path.resolve('example'), function () {
-            done()
-          })
-        })
+        after(removeExampleProject)
 
         it('should create the project', function (done) {
           var args = [
             path.resolve('index.js'),
             'example',
             '--flavor',
-            flavor.value,
+            path.resolve(__dirname, '..', flavor.value),
             '--stream',
             streamLib
           ]
@@ -176,6 +180,10 @@ describe('create-cycle-app', function () {
               if (code !== 0) {
                 done(new Error('`npm run take-off-training-wheels` result code: ' + code))
                 return
+              }
+
+              if (!pathExists(path.resolve('build'))) {
+                done(new Error('`build` folder not created'))
               }
 
               // TODO: Check using flavor spec
