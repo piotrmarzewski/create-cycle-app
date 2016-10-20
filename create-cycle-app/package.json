@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Create Cycle.js with no build configuration.",
   "scripts": {
-    "test": "echo \"Maybe later\""
+    "test": "mocha --compilers js:babel-register test.js"
   },
   "keywords": [],
   "author": "Geovani Souza <geovanisouza92@gmail.com>",
@@ -27,5 +27,12 @@
   "bugs": {
     "url": "https://github.com/cyclejs-community/create-cycle-app/issues"
   },
-  "homepage": "https://github.com/cyclejs-community/create-cycle-app#readme"
+  "homepage": "https://github.com/cyclejs-community/create-cycle-app#readme",
+  "devDependencies": {
+    "babel": "^6.5.2",
+    "babel-core": "^6.17.0",
+    "babel-register": "^6.16.3",
+    "mocha": "^3.1.2",
+    "rimraf": "^2.5.4"
+  }
 }
