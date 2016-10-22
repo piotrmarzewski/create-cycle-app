@@ -8,7 +8,7 @@ var pathExists = require('path-exists')
 var Browser = require('zombie')
 
 // var coreFlavors = require('./coreFlavors.json')
-// var streamLibs = ['xstream', 'most', 'rxjs', 'rx']
+var streamLibs = ['xstream', 'most', 'rxjs', 'rx']
 
 var coreFlavors = [
   {
@@ -16,7 +16,7 @@ var coreFlavors = [
     value: 'cycle-scripts-es-browserify'
   }
 ]
-var streamLibs = ['xstream']
+// var streamLibs = ['xstream']
 
 var specs = coreFlavors
   .map(function (flavor) {
@@ -28,10 +28,6 @@ var specs = coreFlavors
     return a.concat(b)
   })
 
-function removeExampleProject (done) {
-  rimraf(path.resolve('example'), done)
-}
-
 // Run this for each core flavor, with each stream lib
 // delegating to the flavors the checking of consistency
 specs.forEach(function (spec) {
@@ -39,12 +35,19 @@ specs.forEach(function (spec) {
     // Timeout in 1 hour
     this.timeout(3600000)
 
-    after(removeExampleProject)
+    // Using random names to avoid conflicts
+    var exampleName
+    before(function () {
+      exampleName = 'example-' + Math.random().toString(36).substring(7)
+    })
+    after(function (done) {
+      rimraf(path.resolve(__dirname, exampleName), done)
+    })
 
     it('should create the project', function (done) {
       var args = [
-        path.resolve('index.js'),
-        'example',
+        path.resolve(__dirname, 'index.js'),
+        exampleName,
         '--flavor',
         path.resolve(__dirname, '..', spec.flavor.value),
         '--stream',
@@ -58,9 +61,9 @@ specs.forEach(function (spec) {
         }
 
         // Check package.json basic structure
-        var packageJsonPath = path.resolve(__dirname, 'example', 'package.json')
+        var packageJsonPath = path.resolve(__dirname, exampleName, 'package.json')
         var packageJson = require(packageJsonPath)
-        assert.equal(packageJson.name, 'example')
+        assert.equal(packageJson.name, exampleName)
         assert.equal(packageJson.version, '0.1.0')
         assert(packageJson.private)
         assert(packageJson.devDependencies[spec.flavor.value])
@@ -75,7 +78,7 @@ specs.forEach(function (spec) {
         // ```
         // var spec = require(path.resolve(__dirname, '..', spec.flavor.name, 'spec.js'))
         // spec.assertDependencies(packageJson)
-        // spec.assertProjectStructure(path.resolve('example'))
+        // spec.assertProjectStructure(path.resolve(exampleName))
         //
         // ```
 
@@ -85,7 +88,7 @@ specs.forEach(function (spec) {
 
     describe('npm scripts', function () {
       // Enter and exit the project folder
-      before(function () { process.chdir('example') })
+      before(function () { process.chdir(exampleName) })
       after(function () { process.chdir('..') })
 
       it('should start the development server and render the initial page', function (done) {
@@ -95,7 +98,7 @@ specs.forEach(function (spec) {
         var intervalId = setTimeout(function () {
           web.kill()
           done(new Error('timeout'))
-        }, 15000)
+        }, 30000)
 
         // Start error (could be a missing dependency or a invalid code)
         web.stderr.on('data', function (data) {
